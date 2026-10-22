@@ -39,7 +39,7 @@ The Kaggle Brain Tumor MRI Dataset merges three sources: figshare, SARTAR and Br
 
 ### 1.4 Source and label confounding / shortcut learning (!!!)
 
-Data points which are labelled 0 comes from Br35H almost entirely, and label 1 is figshare + SARTAJ. These sources differ in resolution, aspect ratio, borders, sequence and much more. 
+Data points which are labelled 0 comes from Br35H almost entirely, and label 1 is figshare + SARTAR. These sources differ in resolution, aspect ratio, borders, sequence and much more. 
 
 ## 2. Data Handling
 
@@ -74,7 +74,7 @@ Every augmentation arguement is 0 or `False`. The network memorizes the training
 
 ### 3.1 Large portion of the parameters sit in one dense layer (!!!)
 
-### 3.2 CNN trained from scrathc (!!)
+### 3.2 CNN trained from scratch (!!)
 
 - Use pretrained options for better results
 
