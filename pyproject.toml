@@ -1,0 +1,36 @@
+[project]
+name = "neurotfinder"
+version = "0.2.0"
+description = "brain tumour classification from MRI slices"
+readme = "README.md"
+authors = [
+    { name = "batuergen", email = "batuergen@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.5.4",
+    "pyyaml>=6.0.3",
+]
+
+[project.scripts]
+neurotfinder = "neurotfinder:main"
+
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.17.1",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
