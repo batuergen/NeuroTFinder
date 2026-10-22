@@ -1,0 +1,16 @@
+# Data and generated artefacts (never commit MRI images or weights)
+/data/
+/runs/
+*.h5
+*.keras
+*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+.DS_Store
