@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Image labelling</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+         font-size: 16px; color: #1f1f1f; background: #f4f4f2; }
+  main { max-width: 1180px; margin: 0 auto; padding: 20px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 12px; }
+  h2 { font-size: 16px; font-weight: 600; margin: 0 0 8px; }
+  p, li { line-height: 1.55; }
+  .card { background: #fff; border: 1px solid #ddd; border-radius: 10px; padding: 20px 24px; }
+  .hidden { display: none !important; }
+  .warning { background: #fff4d6; border: 1px solid #e8c766; border-radius: 8px;
+             padding: 10px 14px; margin-bottom: 14px; }
+  button { font: inherit; padding: 9px 14px; border-radius: 8px; border: 1px solid #bbb;
+           background: #fff; color: #1f1f1f; cursor: pointer; }
+  button:hover { background: #f0f0ee; }
+  button.primary { background: #1f5fbf; border-color: #1f5fbf; color: #fff; }
+  button.primary:hover { background: #194f9f; }
+  button.chosen { background: #dbe8fb; border: 2px solid #1f5fbf; color: #123f80; }
+  button .key { display: inline-block; min-width: 1.4em; color: #777; font-size: 13px; }
+  button.chosen .key { color: #123f80; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 12px;
+         margin-bottom: 8px; font-size: 14px; color: #555; }
+  .bar { height: 6px; background: #e4e4e0; border-radius: 3px; margin-bottom: 16px; }
+  .bar div { height: 6px; background: #1f5fbf; border-radius: 3px; width: 0; }
+  .work { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; }
+  .viewer { background: #000; border-radius: 8px; height: min(78vh, 760px); overflow: auto;
+            display: flex; }
+  .viewer img { flex: none; margin: auto; width: 100%; height: 100%; object-fit: contain;
+                cursor: zoom-in; }
+  .viewer.zoomed img { width: 200%; height: 200%; cursor: zoom-out; }
+  .tools { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 14px;
+           flex-wrap: wrap; }
+  .tools input[type=range] { width: 130px; }
+  .grid { display: grid; gap: 6px; margin-bottom: 16px; }
+  .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .grid button { text-align: left; display: flex; align-items: center; gap: 6px; padding: 9px 10px; }
+  .wide { grid-column: 1 / -1; }
+  .checks { display: flex; gap: 18px; margin-bottom: 10px; }
+  .checks label { cursor: pointer; }
+  textarea { width: 100%; font: inherit; font-size: 14px; padding: 8px; border-radius: 8px;
+             border: 1px solid #bbb; resize: vertical; }
+  .error { color: #b3261e; font-size: 14px; min-height: 1.3em; margin: 8px 0 0; }
+  .row { display: flex; gap: 10px; margin-top: 12px; }
+  .row button.primary { flex: 1; }
+  .help { font-size: 13px; color: #666; margin-top: 14px; }
+  table.keys td { padding: 2px 14px 2px 0; }
+</style>
+</head>
+<body>
+<main>
+  <div id="storage-warning" class="warning hidden">
+    This browser is not saving progress. Please keep this tab open until you have
+    downloaded your results.
+  </div>
+
+  <section id="intro" class="card">
+    <h1>MRI sequence and plane labelling</h1>
+    <p>Thank you for helping. You will see <span id="intro-count"></span> brain images,
+      one at a time. For each one, please choose:</p>
+    <ul>
+      <li><b>Sequence</b>: T1, T1 with contrast, T2, FLAIR, CT or other. If it is T1-weighted
+        but you cannot tell from this single slice whether contrast was given, choose
+        <b>T1, contrast unclear</b>.</li>
+      <li><b>Plane</b>: axial, coronal or sagittal.</li>
+    </ul>
+    <p>Please do not guess. If you are not sure, give your best answer and tick
+      <b>Not sure</b>; that is useful information too. If an image looks abnormal, or is
+      not a usable brain image at all, tick <b>Looks abnormal</b> or add a short note.</p>
+    <p>The images are in random order and carry no diagnosis. Your progress is saved after
+      every image, so you can close this page and continue later. Every
+      <span id="intro-batch"></span> images there is a short break screen.</p>
+    <p>When you have finished, press <b>Download results</b> and email the file it saves.</p>
+    <table class="keys">
+      <tr><td>Keys 1 to 7</td><td>sequence</td></tr>
+      <tr><td>A, C, S</td><td>plane</td></tr>
+      <tr><td>U / X</td><td>not sure / looks abnormal</td></tr>
+      <tr><td>Enter or right arrow</td><td>next image</td></tr>
+      <tr><td>Left arrow</td><td>previous image</td></tr>
+      <tr><td>Z</td><td>zoom</td></tr>
+    </table>
+    <div class="row"><button id="start" class="primary">Start</button></div>
+  </section>
+
+  <section id="labelling" class="hidden">
+    <div class="top">
+      <span id="position"></span>
+      <span><span id="saved"></span>
+        <button id="download-top">Download results</button></span>
+    </div>
+    <div class="bar"><div id="bar"></div></div>
+    <div class="work">
+      <div>
+        <div id="viewer" class="viewer"><img id="image" alt="brain image to label"></div>
+        <div class="tools">
+          <label for="brightness">Brightness</label>
+          <input id="brightness" type="range" min="40" max="200" step="5" value="100">
+          <label for="contrast">Contrast</label>
+          <input id="contrast" type="range" min="40" max="300" step="5" value="100">
+          <button id="reset-view">Reset</button>
+          <button id="zoom">Zoom</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Sequence</h2>
+        <div id="sequences" class="grid two"></div>
+        <h2>Plane</h2>
+        <div id="planes" class="grid three"></div>
+        <div class="checks">
+          <label><input id="unsure" type="checkbox"> Not sure</label>
+          <label><input id="abnormal" type="checkbox"> Looks abnormal</label>
+        </div>
+        <textarea id="note" rows="3" placeholder="Optional note"></textarea>
+        <p id="error" class="error"></p>
+        <div class="row">
+          <button id="back">Back</button>
+          <button id="next" class="primary">Next image</button>
+        </div>
+        <p class="help">Keys: 1 to 7 sequence, A C S plane, U not sure, X abnormal,
+          Enter next, left arrow back, Z zoom.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="pause" class="card hidden">
+    <h1>Good place for a break</h1>
+    <p id="pause-text"></p>
+    <p>Your progress is saved. You can close this page and open the same file later.</p>
+    <div class="row">
+      <button id="pause-download">Download results so far</button>
+      <button id="resume" class="primary">Continue</button>
+    </div>
+  </section>
+
+  <section id="done" class="card hidden">
+    <h1>All images are labelled</h1>
+    <p>Thank you. Please press the button below and email the file it saves.
+      You can still go back and change answers before downloading.</p>
+    <div class="row">
+      <button id="review">Go back to the last image</button>
+      <button id="done-download" class="primary">Download results</button>
+    </div>
+  </section>
+</main>
+
+<script>
+const DATA = /*DATA*/null;
+const STORE_KEY = "neurotfinder-labels-" + DATA.session;
+const items = DATA.items;
+const answers = {};  // id -> {sequence, plane, unsure, abnormal, note, labelled_at}
+let pos = 0;
+let storageOk = true;
+
+const $ = (id) => document.getElementById(id);
+
+function load() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
+    if (saved) {
+      Object.assign(answers, saved.answers || {});
+      pos = Math.min(saved.pos || 0, items.length - 1);
+    }
+  } catch (e) {
+    storageOk = false;
+  }
+}
+
+function save() {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify({ answers, pos }));
+    $("saved").textContent = "Progress saved";
+  } catch (e) {
+    storageOk = false;
+    $("storage-warning").classList.remove("hidden");
+    $("saved").textContent = "";
+  }
+}
+
+function labelledCount() {
+  return items.filter((item) => isComplete(answers[item.id])).length;
+}
+
+function isComplete(a) {
+  return Boolean(a && a.sequence && a.plane);
+}
+
+function firstUnlabelled() {
+  const i = items.findIndex((item) => !isComplete(answers[item.id]));
+  return i === -1 ? items.length - 1 : i;
+}
+
+function current() {
+  const id = items[pos].id;
+  if (!answers[id]) answers[id] = { sequence: "", plane: "", unsure: false, abnormal: false, note: "" };
+  return answers[id];
+}
+
+function show(section) {
+  for (const s of ["intro", "labelling", "pause", "done"]) $(s).classList.toggle("hidden", s !== section);
+}
+
+function makeButtons(container, options, field, keyFor) {
+  options.forEach(([value, text], i) => {
+    const b = document.createElement("button");
+    b.dataset.value = value;
+    b.innerHTML = '<span class="key"></span>';
+    b.querySelector(".key").textContent = keyFor(text, i);
+    b.append(" " + text);
+    if (field === "sequence" && value === "t1_unclear") b.classList.add("wide");
+    b.addEventListener("click", () => choose(field, value));
+    container.append(b);
+  });
+}
+
+function choose(field, value) {
+  // A clicked button keeps focus, and Enter would press it again on the next image.
+  if (document.activeElement.tagName === "BUTTON") document.activeElement.blur();
+  current()[field] = value;
+  $("error").textContent = "";
+  render();
+  save();
+}
+
+function render() {
+  const a = current();
+  $("image").src = items[pos].src;
+  $("position").textContent = "Image " + (pos + 1) + " of " + items.length +
+    "  (" + labelledCount() + " labelled)";
+  $("bar").style.width = (100 * labelledCount() / items.length) + "%";
+  for (const b of $("sequences").children) b.classList.toggle("chosen", b.dataset.value === a.sequence);
+  for (const b of $("planes").children) b.classList.toggle("chosen", b.dataset.value === a.plane);
+  $("unsure").checked = a.unsure;
+  $("abnormal").checked = a.abnormal;
+  $("note").value = a.note;
+  $("back").disabled = pos === 0;
+}
+
+function next() {
+  const a = current();
+  if (!isComplete(a)) {
+    $("error").textContent = !a.sequence && !a.plane ? "Choose a sequence and a plane first."
+      : !a.sequence ? "Choose a sequence first." : "Choose a plane first.";
+    return;
+  }
+  a.note = $("note").value.trim();
+  const firstTime = !a.labelled_at;
+  a.labelled_at = new Date().toISOString();
+  const done = labelledCount();
+  if (done === items.length) {
+    save();
+    show("done");
+    return;
+  }
+  pos = pos + 1 < items.length ? pos + 1 : firstUnlabelled();
+  save();
+  if (firstTime && done % DATA.batch === 0) {
+    $("pause-text").textContent = done + " of " + items.length + " images labelled.";
+    show("pause");
+    return;
+  }
+  render();
+}
+
+function back() {
+  if (pos === 0) return;
+  current().note = $("note").value.trim();
+  pos -= 1;
+  $("error").textContent = "";
+  save();
+  render();
+}
+
+function csvCell(value) {
+  const s = String(value ?? "");
+  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function download() {
+  if (items[pos] && answers[items[pos].id]) current().note = $("note").value.trim();
+  save();
+  const header = ["id", "sequence", "plane", "unsure", "abnormal", "note", "rater", "labelled_at"];
+  const rows = [header.join(",")];
+  for (const item of items) {
+    const a = answers[item.id];
+    if (!isComplete(a)) continue;
+    rows.push([item.id, a.sequence, a.plane, a.unsure ? 1 : 0, a.abnormal ? 1 : 0, a.note,
+      DATA.rater, a.labelled_at || ""].map(csvCell).join(","));
+  }
+  const blob = new Blob([rows.join("\n") + "\n"], { type: "text/csv" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "labels_" + DATA.rater + ".csv";
+  document.body.append(link);
+  link.click();
+  link.remove();
+}
+
+function applyView() {
+  $("image").style.filter = "brightness(" + $("brightness").value / 100 + ") contrast(" +
+    $("contrast").value / 100 + ")";
+}
+
+function toggleZoom() {
+  $("viewer").classList.toggle("zoomed");
+}
+
+function onKey(e) {
+  if ($("labelling").classList.contains("hidden")) return;
+  if (e.target.tagName === "TEXTAREA") {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); next(); }
+    return;
+  }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  const n = Number(k);
+  if (n >= 1 && n <= DATA.sequences.length) choose("sequence", DATA.sequences[n - 1][0]);
+  else if (DATA.planes.some(([v]) => v[0] === k)) choose("plane", DATA.planes.find(([v]) => v[0] === k)[0]);
+  else if (k === "u") { current().unsure = !current().unsure; render(); save(); }
+  else if (k === "x") { current().abnormal = !current().abnormal; render(); save(); }
+  else if (k === "z") toggleZoom();
+  else if (e.key === "Enter" || e.key === "ArrowRight") next();
+  else if (e.key === "ArrowLeft") back();
+  else return;
+  e.preventDefault();
+}
+
+makeButtons($("sequences"), DATA.sequences, "sequence", (text, i) => String(i + 1));
+makeButtons($("planes"), DATA.planes, "plane", (text) => text[0]);
+$("intro-count").textContent = items.length;
+$("intro-batch").textContent = DATA.batch;
+load();
+if (labelledCount() > 0) $("start").textContent = "Continue (" + labelledCount() + " of " + items.length + " done)";
+if (!storageOk) $("storage-warning").classList.remove("hidden");
+
+$("start").addEventListener("click", () => {
+  if (labelledCount() === items.length) { show("done"); return; }
+  pos = firstUnlabelled();
+  show("labelling");
+  render();
+});
+$("next").addEventListener("click", next);
+$("back").addEventListener("click", back);
+$("unsure").addEventListener("change", (e) => { current().unsure = e.target.checked; save(); });
+$("abnormal").addEventListener("change", (e) => { current().abnormal = e.target.checked; save(); });
+$("note").addEventListener("input", (e) => { current().note = e.target.value; save(); });
+$("brightness").addEventListener("input", applyView);
+$("contrast").addEventListener("input", applyView);
+$("reset-view").addEventListener("click", () => {
+  $("brightness").value = 100; $("contrast").value = 100; applyView();
+  $("viewer").classList.remove("zoomed");
+});
+$("zoom").addEventListener("click", toggleZoom);
+$("image").addEventListener("click", toggleZoom);
+$("resume").addEventListener("click", () => { show("labelling"); render(); });
+$("review").addEventListener("click", () => { pos = items.length - 1; show("labelling"); render(); });
+for (const id of ["download-top", "pause-download", "done-download"]) $(id).addEventListener("click", download);
+document.addEventListener("keydown", onKey);
+window.addEventListener("beforeunload", () => {
+  if (!$("labelling").classList.contains("hidden")) { current().note = $("note").value.trim(); save(); }
+});
+</script>
+</body>
+</html>
